@@ -21,12 +21,14 @@
   padding: 0;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   -webkit-font-smoothing: antialiased;
+  -webkit-tap-highlight-color: transparent;
 }
 
 body {
   background-color: var(--bg-primary);
   color: var(--text-primary);
   height: 100vh;
+  height: 100dvh;
   display: flex;
   overflow: hidden;
 }
@@ -227,13 +229,6 @@ body {
   color: var(--text-secondary);
 }
 
-.sidebar-footer {
-  padding: 20px;
-  border-top: 1px solid var(--border-color);
-  display: flex;
-  gap: 10px;
-}
-
 .btn-secondary {
   flex: 1;
   background-color: var(--border-color);
@@ -330,6 +325,15 @@ body {
 .btn-icon:hover {
   background-color: var(--border-color);
   color: var(--text-primary);
+}
+
+.btn-icon.spinning svg {
+  animation: spin 0.7s linear infinite;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
 }
 
 /* Messages Stream */
@@ -472,6 +476,8 @@ body {
   border-radius: 16px;
   width: 90%;
   max-width: 420px;
+  max-height: 90vh;
+  overflow-y: auto;
   padding: 28px;
   box-shadow: var(--shadow-md);
   display: flex;
@@ -596,6 +602,12 @@ body {
   justify-content: space-between;
 }
 
+.mobile-nav-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
 /* Media Queries */
 @media (max-width: 768px) {
   .app-container {
@@ -610,6 +622,7 @@ body {
     height: calc(100% - 56px);
     transform: translateX(-100%);
     box-shadow: var(--shadow-md);
+    z-index: 20;
   }
 
   .sidebar.show {
@@ -618,10 +631,13 @@ body {
 
   .mobile-nav-bar {
     display: flex;
+    padding-top: env(safe-area-inset-top);
+    height: calc(56px + env(safe-area-inset-top));
+    flex-shrink: 0;
   }
 
   .chat-area {
-    height: calc(100% - 56px);
+    height: calc(100% - 56px - env(safe-area-inset-top));
   }
 
   .chat-header {
@@ -634,5 +650,27 @@ body {
 
   .message-group {
     max-width: 85%;
+  }
+
+  .chat-input-area {
+    padding: 14px 16px calc(14px + env(safe-area-inset-bottom));
+  }
+
+  /* Use 16px inputs on mobile to prevent iOS Safari from auto-zooming on focus */
+  .chat-input,
+  .form-input,
+  .input-group input {
+    font-size: 16px;
+  }
+
+  /* Keep tap targets comfortably sized on touch screens */
+  .btn-icon,
+  .sidebar-menu-btn {
+    min-width: 40px;
+    min-height: 40px;
+  }
+
+  .room-item {
+    padding: 12px 14px;
   }
 }

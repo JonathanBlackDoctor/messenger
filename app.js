@@ -16,12 +16,13 @@ const chatRoomStatus = document.getElementById('chat-room-status');
 const mobileRoomTitle = document.getElementById('mobile-room-title');
 const shareRoomBtn = document.getElementById('share-room-btn');
 const mobileShareBtn = document.getElementById('mobile-share-btn');
+const refreshRoomBtn = document.getElementById('refresh-room-btn');
+const mobileRefreshBtn = document.getElementById('mobile-refresh-btn');
 
 const messagesContainer = document.getElementById('messages-container');
 const chatForm = document.getElementById('chat-form');
 const messageInput = document.getElementById('message-input');
 
-const dbConfigBtn = document.getElementById('db-config-btn');
 const demoBannerSetupBtn = document.getElementById('demo-banner-setup-btn');
 const demoBanner = document.getElementById('demo-banner');
 const configOverlay = document.getElementById('config-overlay');
@@ -493,6 +494,24 @@ function renderPublicRooms() {
   });
 }
 
+async function refreshCurrentRoom() {
+  const refreshButtons = [refreshRoomBtn, mobileRefreshBtn].filter(Boolean);
+  refreshButtons.forEach(btn => btn.classList.add('spinning'));
+  const minSpinDelay = new Promise(resolve => setTimeout(resolve, 500));
+
+  try {
+    if (isDemoMode) {
+      renderMessages(getLocalHistory(currentRoom));
+      renderPublicRooms();
+    } else {
+      await initDatabase();
+    }
+  } finally {
+    await minSpinDelay;
+    refreshButtons.forEach(btn => btn.classList.remove('spinning'));
+  }
+}
+
 function copyRoomLink() {
   const link = window.location.href;
   navigator.clipboard.writeText(link).then(() => {
@@ -616,8 +635,11 @@ function setupEventListeners() {
   shareRoomBtn.onclick = copyRoomLink;
   mobileShareBtn.onclick = copyRoomLink;
 
+  // Refresh buttons
+  refreshRoomBtn.onclick = refreshCurrentRoom;
+  mobileRefreshBtn.onclick = refreshCurrentRoom;
+
   // Firebase Config actions
-  dbConfigBtn.onclick = showConfigModal;
   demoBannerSetupBtn.onclick = showConfigModal;
   configCancelBtn.onclick = hideConfigModal;
   configSaveBtn.onclick = saveConfig;
