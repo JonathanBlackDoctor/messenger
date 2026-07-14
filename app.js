@@ -33,6 +33,7 @@ const configSaveBtn = document.getElementById('config-save-btn');
 const mobileToggleBtn = document.getElementById('mobile-toggle-btn');
 const sidebarCloseBtn = document.getElementById('sidebar-close-btn');
 const sidebar = document.getElementById('sidebar');
+const sidebarOverlay = document.getElementById('sidebar-overlay');
 
 // Firebase Configuration inputs
 const cfgApiKey = document.getElementById('cfg-apiKey');
@@ -448,6 +449,7 @@ function switchRoom(newRoom) {
   
   // Close sidebar on mobile
   sidebar.classList.remove('show');
+  if (sidebarOverlay) sidebarOverlay.classList.remove('active');
 
   // Reconnect
   initDatabase();
@@ -648,10 +650,18 @@ function setupEventListeners() {
   // Mobile sidebar toggle
   mobileToggleBtn.onclick = () => {
     sidebar.classList.add('show');
+    if (sidebarOverlay) sidebarOverlay.classList.add('active');
   };
-  sidebarCloseBtn.onclick = () => {
+
+  const closeSidebar = () => {
     sidebar.classList.remove('show');
+    if (sidebarOverlay) sidebarOverlay.classList.remove('active');
   };
+
+  sidebarCloseBtn.onclick = closeSidebar;
+  if (sidebarOverlay) {
+    sidebarOverlay.onclick = closeSidebar;
+  }
 }
 
 // Start application
