@@ -40,19 +40,22 @@ const cfgProjectId = document.getElementById('cfg-projectId');
 const cfgStorageBucket = document.getElementById('cfg-storageBucket');
 const cfgMessagingSenderId = document.getElementById('cfg-messagingSenderId');
 const cfgAppId = document.getElementById('cfg-appId');
+const cfgDatabaseURL = document.getElementById('cfg-databaseURL');
 
 // State Variables
 let myNickname = localStorage.getItem('messenger_nickname') || '';
 let currentRoom = '';
 let isDemoMode = true;
 let publicRooms = [];
-let roomsUnsubscribe = null;
 let lobbyBroadcastChannel = null;
 
 // Firebase Instances & Unsubscribe callbacks
 let firebaseApp = null;
 let firebaseDb = null;
 let dbUnsubscribe = null;
+let firebaseRoomsUnsubscribe = null;
+let firebaseConfigSignature = '';
+let firebaseModules = null;
 
 // Local Mode communication
 let localBroadcastChannel = null;
@@ -61,11 +64,7 @@ let localBroadcastChannel = null;
 async function init() {
   // 1. Setup Room
   const urlParams = new URLSearchParams(window.location.search);
-  currentRoom = urlParams.get('room') || 'global';
-  currentRoom = currentRoom.trim().toLowerCase();
-  
-  // Clean room name for security/whitespace
-  if (!currentRoom) currentRoom = 'global';
+  currentRoom = normalizeRoomName(urlParams.get('room'));
   
   // 2. Setup Nickname
   if (!myNickname) {
@@ -115,9 +114,9 @@ async function initDatabase() {
     dbUnsubscribe();
     dbUnsubscribe = null;
   }
-  if (roomsUnsubscribe) {
-    roomsUnsubscribe();
-    roomsUnsubscribe = null;
+  if (firebaseRoomsUnsubscribe) {
+    firebaseRoomsUnsubscribe();
+    firebaseRoomsUnsubscribe = null;
   }
   if (localBroadcastChannel) {
     localBroadcastChannel.close();
@@ -151,68 +150,76 @@ async function initDatabase() {
     // We have a configuration! Let's load Firebase dynamically
     isDemoMode = false;
     demoBanner.style.display = 'none';
-    chatRoomStatus.innerHTML = '<span style="color: #10b981;">● 온라인 (Firebase)</span>';
+    chatRoomStatus.innerHTML = '<span style="color: #10b981;">● 온라인 (Realtime DB)</span>';
     
     try {
-      // Dynamic imports from CDN
-      const { initializeApp } = await import("https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js");
-      const { getFirestore, collection, addDoc, onSnapshot, query, orderBy, limit, serverTimestamp, doc, setDoc } = await import("https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js");
-      
-      // Initialize Firebase App if not already initialized
+      const { app, database } = await loadFirebaseModules();
+      const { initializeApp, deleteApp } = app;
+      const { getDatabase, ref, update, onValue, query, orderByChild, limitToLast, serverTimestamp } = database;
+      const nextConfigSignature = JSON.stringify(config);
+
+      // Recreate the app when the user changes projects in the settings modal.
+      if (firebaseApp && firebaseConfigSignature !== nextConfigSignature) {
+        await deleteApp(firebaseApp);
+        firebaseApp = null;
+        firebaseDb = null;
+      }
       if (!firebaseApp) {
         firebaseApp = initializeApp(config);
+        firebaseConfigSignature = nextConfigSignature;
       }
-      firebaseDb = getFirestore(firebaseApp);
-      
-      // Register current room in Firestore
-      const roomRef = doc(firebaseDb, "rooms", currentRoom);
-      await setDoc(roomRef, {
+      firebaseDb = getDatabase(firebaseApp, config.databaseURL);
+
+      // Register the current room in Realtime Database.
+      const roomRef = ref(firebaseDb, 'rooms/' + currentRoom);
+      await update(roomRef, {
         name: currentRoom,
         lastActive: serverTimestamp()
-      }, { merge: true });
+      });
 
-      // Subscribe to Firestore Messages
-      const messagesRef = collection(firebaseDb, "rooms", currentRoom, "messages");
-      const q = query(messagesRef, orderBy("timestamp", "asc"), limit(150));
+      // Subscribe to the latest 150 messages in the current room.
+      const messagesRef = ref(firebaseDb, 'rooms/' + currentRoom + '/messages');
+      const messagesQuery = query(messagesRef, orderByChild('timestamp'), limitToLast(150));
       
-      dbUnsubscribe = onSnapshot(q, (snapshot) => {
+      dbUnsubscribe = onValue(messagesQuery, (snapshot) => {
         const messages = [];
-        snapshot.forEach((doc) => {
-          const data = doc.data();
+        snapshot.forEach((childSnapshot) => {
+          const data = childSnapshot.val() || {};
           messages.push({
-            id: doc.id,
+            id: childSnapshot.key,
             sender: data.sender || 'Unknown',
             text: data.text || '',
-            timestamp: data.timestamp ? data.timestamp.toMillis() : Date.now(),
+            timestamp: typeof data.timestamp === 'number' ? data.timestamp : Date.now(),
             isSystem: data.isSystem || false
           });
         });
         renderMessages(messages);
       }, (error) => {
-        console.error("Firestore listen failed:", error);
+        console.error("Realtime Database listen failed:", error);
         chatRoomStatus.innerHTML = '<span style="color: #ef4444;">● 데이터베이스 오류</span>';
       });
 
-      // Subscribe to public rooms list
-      const roomsRef = collection(firebaseDb, "rooms");
-      const roomsQuery = query(roomsRef, orderBy("lastActive", "desc"), limit(30));
-      roomsUnsubscribe = onSnapshot(roomsQuery, (snapshot) => {
+      // Subscribe to the latest 30 public rooms.
+      const roomsRef = ref(firebaseDb, 'rooms');
+      const roomsQuery = query(roomsRef, orderByChild('lastActive'), limitToLast(30));
+      firebaseRoomsUnsubscribe = onValue(roomsQuery, (snapshot) => {
         const rooms = [];
-        snapshot.forEach((doc) => {
-          rooms.push(doc.id);
+        snapshot.forEach((childSnapshot) => {
+          rooms.push(childSnapshot.key);
         });
+        rooms.reverse();
         if (currentRoom && !rooms.includes(currentRoom)) {
           rooms.unshift(currentRoom);
         }
         publicRooms = rooms;
         renderPublicRooms();
       }, (error) => {
-        console.error("Firestore rooms list listen failed:", error);
+        console.error("Realtime Database rooms list listen failed:", error);
       });
 
     } catch (err) {
       console.error("Error loading or connecting to Firebase:", err);
-      fallbackToDemoMode("Firebase 로드 오류");
+      fallbackToDemoMode("Firebase 연결 오류");
     }
   } else {
     // No valid config found -> Demo / Local Mode
@@ -225,7 +232,27 @@ async function initDatabase() {
 }
 
 function isConfigValid(config) {
-  return config && config.apiKey && config.projectId;
+  return config && config.apiKey && config.projectId && config.databaseURL;
+}
+
+function normalizeRoomName(roomName) {
+  const normalized = String(roomName || '')
+    .trim()
+    .toLowerCase()
+    .replace(/[.#$[\]/]/g, '-')
+    .slice(0, 64);
+  return normalized || 'global';
+}
+
+async function loadFirebaseModules() {
+  if (!firebaseModules) {
+    const [app, database] = await Promise.all([
+      import("https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js"),
+      import("https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js")
+    ]);
+    firebaseModules = { app, database };
+  }
+  return firebaseModules;
 }
 
 function fallbackToDemoMode(reason = "") {
@@ -308,19 +335,24 @@ async function sendMessage(text, isSystem = false) {
     // Save to local storage and render
     appendLocalMessage(msgData);
   } else {
-    // Write to Firebase Firestore
+    // Write to Firebase Realtime Database.
     try {
-      const { collection, addDoc, serverTimestamp } = await import("https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js");
-      const messagesRef = collection(firebaseDb, "rooms", currentRoom, "messages");
-      
-      await addDoc(messagesRef, {
+      const { database } = await loadFirebaseModules();
+      const { ref, push, set, update, serverTimestamp } = database;
+      const messagesRef = ref(firebaseDb, 'rooms/' + currentRoom + '/messages');
+      const messageRef = push(messagesRef);
+
+      await set(messageRef, {
         sender: msgData.sender,
         text: msgData.text,
         isSystem: msgData.isSystem,
-        timestamp: serverTimestamp() // Set database server timestamp
+        timestamp: serverTimestamp()
+      });
+      await update(ref(firebaseDb, 'rooms/' + currentRoom), {
+        lastActive: serverTimestamp()
       });
     } catch (e) {
-      console.error("Error writing to Firestore:", e);
+      console.error("Error writing to Realtime Database:", e);
       // Fallback save in UI
       alert("메시지 전송 실패: 데이터베이스 연결을 확인하세요.");
     }
@@ -403,7 +435,7 @@ function formatTime(timestamp) {
 // ROOM SWITCHING
 // ----------------------------------------------------
 function switchRoom(newRoom) {
-  newRoom = newRoom.trim().toLowerCase();
+  newRoom = normalizeRoomName(newRoom);
   if (!newRoom || newRoom === currentRoom) return;
   
   currentRoom = newRoom;
@@ -494,6 +526,7 @@ function showConfigModal() {
     cfgStorageBucket.value = config.storageBucket || '';
     cfgMessagingSenderId.value = config.messagingSenderId || '';
     cfgAppId.value = config.appId || '';
+    cfgDatabaseURL.value = config.databaseURL || '';
   } else {
     cfgApiKey.value = '';
     cfgAuthDomain.value = '';
@@ -501,6 +534,7 @@ function showConfigModal() {
     cfgStorageBucket.value = '';
     cfgMessagingSenderId.value = '';
     cfgAppId.value = '';
+    cfgDatabaseURL.value = '';
   }
 }
 
@@ -515,11 +549,12 @@ function saveConfig() {
     projectId: cfgProjectId.value.trim(),
     storageBucket: cfgStorageBucket.value.trim(),
     messagingSenderId: cfgMessagingSenderId.value.trim(),
-    appId: cfgAppId.value.trim()
+    appId: cfgAppId.value.trim(),
+    databaseURL: cfgDatabaseURL.value.trim()
   };
 
-  if (!newConfig.apiKey || !newConfig.projectId) {
-    alert("API Key와 Project ID는 필수 입력값입니다.");
+  if (!newConfig.apiKey || !newConfig.projectId || !newConfig.databaseURL) {
+    alert("API Key, Project ID, Database URL은 필수 입력값입니다.");
     return;
   }
 
@@ -539,6 +574,7 @@ function clearConfig() {
     cfgStorageBucket.value = '';
     cfgMessagingSenderId.value = '';
     cfgAppId.value = '';
+    cfgDatabaseURL.value = '';
     hideConfigModal();
     initDatabase();
   }

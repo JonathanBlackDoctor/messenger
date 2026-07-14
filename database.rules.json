@@ -1,0 +1,24 @@
+{
+  "rules": {
+    ".read": true,
+    "rooms": {
+      ".indexOn": ["lastActive"],
+      "$room": {
+        ".validate": "newData.hasChildren(['name', 'lastActive']) && newData.child('name').val() == $room",
+        "name": {
+          ".write": "newData.isString() && newData.val() == $room"
+        },
+        "lastActive": {
+          ".write": "newData.isNumber()"
+        },
+        "messages": {
+          ".indexOn": ["timestamp"],
+          "$message": {
+            ".write": "!data.exists() && newData.exists()",
+            ".validate": "newData.hasChildren(['sender', 'text', 'isSystem', 'timestamp']) && newData.child('sender').isString() && newData.child('sender').val().length <= 15 && newData.child('text').isString() && newData.child('text').val().length <= 1000 && newData.child('isSystem').isBoolean() && newData.child('timestamp').isNumber()"
+          }
+        }
+      }
+    }
+  }
+}

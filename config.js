@@ -1,5 +1,5 @@
 // Firebase Configuration
-// If you want to use Firebase Firestore for real-time online messaging:
+// Firebase Realtime Database configuration.
 // 1. Create a Firebase project at https://console.firebase.google.com/
 // 2. Add a Web App to your project and copy the configuration object.
 // 3. Fill in the values below and deploy to your repository.
@@ -8,10 +8,11 @@
 // which will save them to the browser's localStorage.
 
 export const firebaseConfig = {
-  apiKey: "",
-  authDomain: "",
-  projectId: "",
-  storageBucket: "",
-  messagingSenderId: "",
-  appId: ""
+  apiKey: "AIzaSyDI8OC07JU6JXWNSLQ7fbm8-hmGOzcr3LM",
+  authDomain: "sajibang-messenger.firebaseapp.com",
+  projectId: "sajibang-messenger",
+  storageBucket: "sajibang-messenger.firebasestorage.app",
+  messagingSenderId: "361083507626",
+  appId: "1:361083507626:web:361ae520a0ba5daa6c51d3",
+  databaseURL: "https://sajibang-messenger-default-rtdb.firebaseio.com"
 };

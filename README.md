@@ -39,17 +39,33 @@
 2. 앱 닉네임을 설정하고 앱을 등록합니다.
 3. 생성된 `firebaseConfig` 객체 안의 설정 내용들을 복사합니다.
 
-### 3단계: Cloud Firestore 데이터베이스 만들기
-1. Firebase 콘솔 왼쪽 메뉴에서 **Firestore Database**를 클릭합니다.
+### 3단계: Realtime Database 만들기
+1. Firebase 콘솔 왼쪽 메뉴에서 **Realtime Database**를 클릭합니다.
 2. **데이터베이스 만들기** 버튼을 클릭합니다.
 3. 위치 설정 후 **테스트 모드로 시작**을 선택하여 데이터베이스를 만듭니다. (또는 대화방 보안 규칙을 수정하고 싶다면 규칙 설정을 조정하세요.)
 4. **규칙(Rules)** 탭으로 이동하여 외부 누구나 메시지를 읽고 쓸 수 있도록 설정을 확인합니다. (기본 테스트 모드 규칙은 30일 동안 누구나 접근 가능하도록 허용합니다.)
    ```javascript
-   rules_version = '2';
-   service cloud.firestore {
-     match /databases/{database}/documents {
-       match /{document=**} {
-         allow read, write: if true;
+   {
+     "rules": {
+       ".read": true,
+       "rooms": {
+           ".indexOn": ["lastActive"],
+           "$room": {
+           ".validate": "newData.hasChildren(['name', 'lastActive']) && newData.child('name').val() == $room",
+           "name": {
+             ".write": "newData.isString() && newData.val() == $room"
+           },
+           "lastActive": {
+             ".write": "newData.isNumber()"
+           },
+           "messages": {
+             ".indexOn": ["timestamp"],
+             "$message": {
+               ".write": "!data.exists() && newData.exists()",
+               ".validate": "newData.hasChildren(['sender', 'text', 'isSystem', 'timestamp']) && newData.child('sender').isString() && newData.child('sender').val().length <= 15 && newData.child('text').isString() && newData.child('text').val().length <= 1000 && newData.child('isSystem').isBoolean() && newData.child('timestamp').isNumber()"
+             }
+           }
+         }
        }
      }
    }
@@ -75,7 +91,8 @@
      projectId: "본인의 Project ID",
      storageBucket: "본인의 Storage Bucket",
      messagingSenderId: "본인의 Sender ID",
-     appId: "본인의 App ID"
+     appId: "본인의 App ID",
+     databaseURL: "https://본인의 프로젝트-default-rtdb.firebaseio.com"
    };
    ```
 3. 파일을 저장하고 GitHub에 Commit & Push 합니다. 이 방식을 사용하면 다른 사용자가 내 링크에 접속했을 때 설정 입력 없이 즉시 데이터베이스가 자동 연동됩니다.
