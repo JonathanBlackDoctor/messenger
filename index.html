@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>사지방 메신저 - Simple Web Messenger</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- Mobile Top Bar (Visible on mobile only) -->
+  <div class="mobile-nav-bar">
+    <button class="sidebar-menu-btn" id="mobile-toggle-btn" aria-label="메뉴 열기">
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="12" x2="21" y2="12"></line><line x1="3" y1="6" x2="21" y2="6"></line><line x1="3" y1="18" x2="21" y2="18"></line></svg>
+    </button>
+    <div class="chat-room-title" id="mobile-room-title">로딩 중...</div>
+    <button class="btn-icon" id="mobile-share-btn" aria-label="링크 복사">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"></path><polyline points="16 6 12 2 8 6"></polyline><line x1="12" y1="2" x2="12" y2="15"></line></svg>
+    </button>
+  </div>
+
+  <div class="app-container">
+    
+    <!-- Sidebar -->
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar-header">
+        <h1 class="app-title">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
+          사지방 메신저
+        </h1>
+        <button class="sidebar-menu-btn" id="sidebar-close-btn" style="display: none;">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+        </button>
+      </div>
+
+      <!-- User Profile (Nickname display) -->
+      <div class="user-profile-section">
+        <div class="user-info">
+          <span class="user-label">내 정보</span>
+          <span class="user-nickname" id="my-nickname-display">로딩 중...</span>
+        </div>
+        <button class="edit-nick-btn" id="change-nickname-btn">변경</button>
+      </div>
+
+      <!-- Rooms Section -->
+      <div class="room-section">
+        <h3>방 참여 / 생성</h3>
+        <form class="room-form" id="room-join-form">
+          <div class="input-group">
+            <input type="text" id="room-input" placeholder="방 코드 입력 (예: navy123)" required autocomplete="off">
+            <button type="submit">이동</button>
+          </div>
+        </form>
+
+        <div style="margin-top: 10px;">
+          <h3>공개 대화방 목록</h3>
+          <div class="room-list" id="public-rooms-list">
+            <!-- Dynamically populated -->
+          </div>
+        </div>
+      </div>
+
+      <!-- Sidebar Footer -->
+      <div class="sidebar-footer">
+        <button class="btn-secondary" id="db-config-btn">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+          연동 설정
+        </button>
+      </div>
+    </aside>
+
+    <!-- Chat Main Area -->
+    <main class="chat-area">
+      <!-- Warning Banner when running in Local Demo Mode -->
+      <div class="demo-banner" id="demo-banner" style="display: none;">
+        <span>⚠️ 현재 <strong>데모 모드(오프라인)</strong>로 동작 중입니다. 실시간 온라인 대화를 하려면 Firebase 데이터베이스를 연동하세요.</span>
+        <button class="demo-banner-btn" id="demo-banner-setup-btn">연동하기</button>
+      </div>
+
+      <!-- Chat Header (Desktop) -->
+      <header class="chat-header">
+        <div class="chat-header-info">
+          <h2 class="chat-room-title" id="chat-room-title">로딩 중...</h2>
+          <span class="chat-room-status" id="chat-room-status">연결 확인 중...</span>
+        </div>
+        <div class="chat-header-actions">
+          <button class="btn-primary" id="share-room-btn">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"></path><polyline points="16 6 12 2 8 6"></polyline><line x1="12" y1="2" x2="12" y2="15"></line></svg>
+            초대 링크 복사
+          </button>
+        </div>
+      </header>
+
+      <!-- Message History -->
+      <div class="messages-container" id="messages-container">
+        <!-- Messages loaded dynamically -->
+      </div>
+
+      <!-- Input Bar -->
+      <footer class="chat-input-area">
+        <form class="chat-input-form" id="chat-form">
+          <input type="text" class="chat-input" id="message-input" placeholder="메시지를 입력하세요..." autocomplete="off" required>
+          <button type="submit" class="btn-icon" style="color: var(--accent-color);" aria-label="메시지 전송">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
+          </button>
+        </form>
+      </footer>
+    </main>
+  </div>
+
+  <!-- Nickname Entry Overlay -->
+  <div class="overlay" id="nickname-overlay">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2>대화방 입장</h2>
+      </div>
+      <div class="modal-body">
+        <p>사용하실 닉네임을 입력해주세요. 언제든지 변경할 수 있습니다.</p>
+        <div class="form-group">
+          <label for="nickname-input">닉네임</label>
+          <input type="text" class="form-input" id="nickname-input" placeholder="예: 홍길동 일병" required autocomplete="off" maxlength="15">
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-primary" id="nickname-submit-btn" style="width: 100%; justify-content: center; padding: 12px;">입장하기</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Firebase Configuration Modal -->
+  <div class="overlay" id="config-overlay">
+    <div class="modal-content" style="max-width: 480px;">
+      <div class="modal-header">
+        <h2>Firebase 실시간 DB 연동</h2>
+      </div>
+      <div class="modal-body">
+        <p>무료 Firebase Firestore를 연동하여 인터넷이 연결된 어디서나 실시간으로 대화할 수 있습니다.</p>
+        <div class="config-grid">
+          <div class="form-group">
+            <label for="cfg-apiKey">API Key (apiKey)</label>
+            <input type="text" class="form-input" id="cfg-apiKey" autocomplete="off">
+          </div>
+          <div class="form-group">
+            <label for="cfg-authDomain">Auth Domain (authDomain)</label>
+            <input type="text" class="form-input" id="cfg-authDomain" autocomplete="off">
+          </div>
+          <div class="form-group">
+            <label for="cfg-projectId">Project ID (projectId)</label>
+            <input type="text" class="form-input" id="cfg-projectId" autocomplete="off">
+          </div>
+          <div class="form-group">
+            <label for="cfg-storageBucket">Storage Bucket (storageBucket)</label>
+            <input type="text" class="form-input" id="cfg-storageBucket" autocomplete="off">
+          </div>
+          <div class="form-group">
+            <label for="cfg-messagingSenderId">Messaging Sender ID (messagingSenderId)</label>
+            <input type="text" class="form-input" id="cfg-messagingSenderId" autocomplete="off">
+          </div>
+          <div class="form-group">
+            <label for="cfg-appId">App ID (appId)</label>
+            <input type="text" class="form-input" id="cfg-appId" autocomplete="off">
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn-secondary" id="config-clear-btn" style="color: var(--danger-color);">설정 초기화</button>
+        <button class="btn-secondary" id="config-cancel-btn">취소</button>
+        <button class="btn-primary" id="config-save-btn">저장 및 연결</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Core Javascript Module -->
+  <script type="module" src="app.js"></script>
+</body>
+</html>
